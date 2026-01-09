@@ -1,5 +1,3 @@
-## Foundry
-
 
 # VoteChain 2025 — End-to-End E-Voting (Foundry + React)
 
@@ -68,12 +66,15 @@ npm install
 anvil
 ```
 ```
-# 4) In a new shell, deploy contracts to Anvil
+foundry build
+```
+```
+# 5) In a new shell, deploy contracts to Anvil
 cd e:/Blockchain/evoting
 forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
 ```
 ```
-# 5) Run the frontend (with LAN access for wallets)
+# 6) Run the frontend (with LAN access for wallets)
 cd frontend
 npm run dev -- --host
 ```
