@@ -1,16 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { User, Mail, Phone, Fingerprint, CheckCircle } from "lucide-react";
+import {
+  User,
+  Mail,
+  Phone,
+  Fingerprint,
+  CheckCircle,
+  Clock,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 
 export function RegisterVoter() {
   const { address } = useAccount();
-  const [submitted, setSubmitted] = useState(false);
+  const [myStatus, setMyStatus] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     nid: "",
   });
+
+  // Check status on mount and when localStorage updates
+  useEffect(() => {
+    const checkStatus = () => {
+      const existing = JSON.parse(
+        localStorage.getItem("voter_requests") || "[]"
+      );
+      const myRequest = existing.find((r) => r.userAddress === address);
+      setMyStatus(myRequest || null);
+    };
+
+    checkStatus();
+    window.addEventListener("voter_requests_updated", checkStatus);
+    return () =>
+      window.removeEventListener("voter_requests_updated", checkStatus);
+  }, [address]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -51,21 +76,69 @@ export function RegisterVoter() {
       newRequest
     );
     window.dispatchEvent(new Event("voter_requests_updated"));
-    setSubmitted(true);
   };
 
-  if (submitted) {
-    return (
-      <div className="text-center p-10 bg-emerald-50 rounded-[3rem] border border-emerald-100 animate-in zoom-in-95">
-        <CheckCircle size={64} className="mx-auto text-emerald-500 mb-4" />
-        <h2 className="text-2xl font-black text-gray-900 leading-none">
-          Submission Success!
-        </h2>
-        <p className="text-gray-500 mt-3 font-medium">
-          Wait for the Authority to verify and register you on the blockchain.
-        </p>
-      </div>
-    );
+  // Show status if already submitted
+  if (myStatus) {
+    if (myStatus.status === "pending") {
+      return (
+        <div className="text-center p-10 bg-yellow-50 rounded-[3rem] border border-yellow-200">
+          <Clock size={64} className="mx-auto text-yellow-600 mb-4" />
+          <h2 className="text-2xl font-black text-gray-900">
+            Application Pending
+          </h2>
+          <p className="text-gray-500 mt-3 font-medium">
+            Wait for the Authority to verify and register you on the blockchain.
+          </p>
+        </div>
+      );
+    }
+
+    if (myStatus.status === "approved") {
+      return (
+        <div className="text-center p-10 bg-emerald-50 rounded-[3rem] border border-emerald-200">
+          <CheckCircle2 size={64} className="mx-auto text-emerald-600 mb-4" />
+          <h2 className="text-2xl font-black text-gray-900">
+            Voter Approved! ✅
+          </h2>
+          <p className="text-gray-600 mt-3">
+            You are now registered on the blockchain as a voter.
+          </p>
+          <p className="text-emerald-600 font-bold mt-4">
+            You can now cast your vote!
+          </p>
+        </div>
+      );
+    }
+
+    if (myStatus.status === "rejected") {
+      return (
+        <div className="text-center p-10 bg-red-50 rounded-[3rem] border border-red-200">
+          <XCircle size={64} className="mx-auto text-red-600 mb-4" />
+          <h2 className="text-2xl font-black text-gray-900">
+            Registration Rejected
+          </h2>
+          <p className="text-gray-600 mt-3">
+            Your voter registration was not approved.
+          </p>
+          <button
+            onClick={() => {
+              const existing = JSON.parse(
+                localStorage.getItem("voter_requests") || "[]"
+              );
+              const filtered = existing.filter(
+                (r) => r.userAddress !== address
+              );
+              localStorage.setItem("voter_requests", JSON.stringify(filtered));
+              window.dispatchEvent(new Event("voter_requests_updated"));
+            }}
+            className="mt-6 bg-purple-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-purple-700"
+          >
+            Reapply
+          </button>
+        </div>
+      );
+    }
   }
 
   return (

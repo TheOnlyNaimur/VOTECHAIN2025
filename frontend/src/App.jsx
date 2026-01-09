@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { VotingBallot } from "./VotingBallot";
@@ -17,6 +17,7 @@ import {
 import { RegisterVoter } from "./RegisterVoter";
 import { RegisterParty } from "./RegisterParty";
 import { AdminPanel } from "./AdminPanel";
+import { Results } from "./Results";
 
 // Import your static constants
 import { ADMIN_ADDRESS } from "./constants";
@@ -35,6 +36,13 @@ function App() {
     isConnected && address && ADMIN_ADDRESS
       ? address.toLowerCase() === ADMIN_ADDRESS.toLowerCase()
       : false;
+
+  // Auto-redirect admin to admin panel on connect
+  useEffect(() => {
+    if (isAdmin && view === "portal") {
+      setView("admin");
+    }
+  }, [isAdmin, view]);
 
   // Check status - refreshKey forces recalculation when "Tap to Check" is clicked
   const { myStatus, myPartyStatus, myPartyRequest } = useMemo(() => {
@@ -82,7 +90,7 @@ function App() {
     );
   }
 
-  // 2. ROLE SELECTION (The Portal)
+  // 2. ROLE SELECTION (The Portal) - Skip for admin (handled by useEffect)
   if (view === "portal") {
     return (
       <div className="min-h-screen flex flex-col bg-white">
@@ -113,7 +121,7 @@ function App() {
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 w-full max-w-6xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full max-w-4xl">
             <RoleCard
               title="Voter"
               desc="Register identity and cast ballot"
@@ -128,25 +136,15 @@ function App() {
               color="bg-blue-500"
               onClick={() => setView("party")}
             />
-
-            {/* Instant Admin UI logic */}
-            <RoleCard
-              title="Authority"
-              desc={isAdmin ? "Verified Admin Access" : "Restricted Access"}
-              icon={<ShieldCheck size={40} />}
-              color={isAdmin ? "bg-purple-600" : "bg-gray-300"}
-              onClick={() =>
-                isAdmin
-                  ? setView("admin")
-                  : alert(
-                      "ACCESS DENIED: You are not authorized as the Admin in constants.js"
-                    )
-              }
-            />
           </div>
         </main>
       </div>
     );
+  }
+
+  // Auto-redirect admin to admin panel on first load
+  if (isAdmin && view === "portal") {
+    setView("admin");
   }
 
   // 3. SUB-PAGES (Forms)

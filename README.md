@@ -50,6 +50,13 @@ $ anvil
 ```shell
 $ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
+or 
+for local anvill deployment
+
+```shell
+cd e:\Blockchain\evoting
+forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+```
 
 ### Cast
 

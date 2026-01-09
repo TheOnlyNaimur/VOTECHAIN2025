@@ -1,95 +1,154 @@
 import { useState, useEffect } from "react";
-import { BALLOT_ADDRESS, PARTY_REGISTRY_ADDRESS } from "./constants";
+import { BALLOT_ADDRESS } from "./constants";
 import BallotABI from "./abis/Ballot.json";
-import PartyRegistryABI from "./abis/PartyRegistry.json";
-import { Trophy, Users, Flag } from "lucide-react";
+import { createPublicClient, http } from "viem";
 
 export function Results() {
   const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Load parties from localStorage and fetch vote counts
   useEffect(() => {
+    console.log("📊 Results: Starting results fetch...");
+    console.log("📊 Results: BALLOT_ADDRESS =", BALLOT_ADDRESS);
+
     const fetchResults = async () => {
-      const savedParties = JSON.parse(
-        localStorage.getItem("party_requests") || "[]"
-      );
-      const approvedParties = savedParties.filter(
-        (p) => p.status === "approved"
-      );
-
-      if (approvedParties.length === 0) {
-        setResults([]);
-        return;
-      }
-
-      const resultsData = [];
-      for (const party of approvedParties) {
-        try {
-          // Read vote count from blockchain
-          const response = await fetch("http://127.0.0.1:8545", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              method: "eth_call",
-              params: [
-                {
-                  to: BALLOT_ADDRESS,
-                  data: `0x0121b93f000000000000000000000000${party.userAddress.slice(
-                    2
-                  )}`,
-                },
-                "latest",
-              ],
-              id: 1,
-            }),
-          });
-          const data = await response.json();
-          const voteCount = parseInt(data.result, 16);
-
-          resultsData.push({
-            ...party,
-            votes: voteCount,
-          });
-        } catch (error) {
-          console.error(`Error fetching votes for ${party.name}:`, error);
-          resultsData.push({
-            ...party,
-            votes: 0,
-          });
+      try {
+        setLoading(true);
+        console.log("📊 Results: Fetching results...");
+        const client = createPublicClient({
+          transport: http("http://127.0.0.1:8545"),
+        });
+        const bytecode = await client.getBytecode({ address: BALLOT_ADDRESS });
+        console.log("📊 Results: Ballot bytecode present?", Boolean(bytecode));
+        if (!bytecode) {
+          console.warn(
+            "📊 Results: No bytecode found at BALLOT_ADDRESS. Is Anvil freshly restarted and contracts redeployed?"
+          );
         }
-      }
 
-      // Sort by votes descending
-      resultsData.sort((a, b) => b.votes - a.votes);
-      setResults(resultsData);
+        // Get ALL parties from localStorage (for admin view, show all)
+        const savedParties = JSON.parse(
+          localStorage.getItem("party_requests") || "[]"
+        );
+        console.log("📊 Results: All parties in localStorage:", savedParties);
+        console.log(
+          "📊 Results: localStorage party_requests:",
+          localStorage.getItem("party_requests")
+        );
+
+        // For admin view, show all parties regardless of status
+        const partiesToCheck = savedParties;
+        console.log("📊 Results: Parties to check:", partiesToCheck);
+        console.log(
+          "📊 Results: Number of parties to check:",
+          partiesToCheck.length
+        );
+
+        if (partiesToCheck.length === 0) {
+          console.warn("📊 Results: No parties found!");
+        }
+
+        const resultsData = [];
+
+        // Fetch vote count for each party from blockchain
+        for (const party of partiesToCheck) {
+          try {
+            console.log(`📊 Results: Fetching votes for party:`, party);
+            const count = await client.readContract({
+              address: BALLOT_ADDRESS,
+              abi: BallotABI.abi,
+              functionName: "voteCount",
+              args: [party.userAddress],
+            });
+            const voteCount = Number(count || 0);
+            console.log(`📊 Results: ${party.name} has ${voteCount} votes`);
+
+            resultsData.push({
+              name: party.name,
+              address: party.userAddress,
+              votes: voteCount,
+            });
+          } catch (error) {
+            console.error(
+              `📊 Results: Error fetching votes for ${party.name}:`,
+              error
+            );
+            // Gracefully continue with 0 votes if the call returned no data
+            resultsData.push({
+              name: party.name,
+              address: party.userAddress,
+              votes: 0,
+            });
+          }
+        }
+
+        // Sort by votes (highest first)
+        resultsData.sort((a, b) => b.votes - a.votes);
+
+        console.log("📊 Results: Final results:", resultsData);
+        setResults(resultsData);
+        setLoading(false);
+      } catch (error) {
+        console.error("📊 Results: Error fetching results:", error);
+        setLoading(false);
+      }
     };
 
     fetchResults();
+
+    // Listen for party updates and vote events
+    const handleUpdate = () => {
+      console.log("📊 Results: Party list updated, refreshing...");
+      fetchResults();
+    };
+
+    const handleVoteCast = () => {
+      console.log("📊 Results: Vote cast detected, refreshing...");
+      setTimeout(fetchResults, 2000); // Wait 2 seconds for blockchain confirmation
+    };
+
+    window.addEventListener("party_requests_updated", handleUpdate);
+    window.addEventListener("vote_cast", handleVoteCast);
+
+    return () => {
+      window.removeEventListener("party_requests_updated", handleUpdate);
+      window.removeEventListener("vote_cast", handleVoteCast);
+    };
   }, []);
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <h2 className="text-2xl font-bold mb-4">📊 Election Results</h2>
+        <p className="text-gray-600">Loading results from blockchain...</p>
+      </div>
+    );
+  }
+
+  if (results.length === 0) {
+    return (
+      <div className="p-6">
+        <h2 className="text-2xl font-bold mb-4">📊 Election Results</h2>
+        <p className="text-gray-600">No results yet. Waiting for votes...</p>
+      </div>
+    );
+  }
+
   const totalVotes = results.reduce((sum, r) => sum + r.votes, 0);
-  const winner = results.length > 0 ? results[0] : null;
+  const winner = results[0];
 
   return (
-    <div className="w-full max-w-4xl mx-auto pb-20">
-      <div className="text-center mb-12">
-        <h2 className="text-5xl font-black text-gray-900 tracking-tight mb-3">
-          Election Results
-        </h2>
-        <p className="text-gray-500 text-lg flex items-center justify-center gap-2">
-          <Users size={20} /> Total Votes Cast: {totalVotes}
-        </p>
-      </div>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold mb-6">📊 Election Results</h2>
 
+      {/* Winner Card */}
       {winner && winner.votes > 0 && (
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-300 p-10 rounded-[3rem] mb-8 text-center">
-          <Trophy size={64} className="mx-auto text-yellow-600 mb-4" />
-          <h3 className="text-3xl font-black text-yellow-900 mb-2">
-            Current Leader
+        <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 border-2 border-yellow-400 rounded-lg p-6 mb-6">
+          <h3 className="text-xl font-bold text-yellow-800 mb-2">
+            🏆 Leading Party
           </h3>
-          <h4 className="text-4xl font-black text-gray-900">{winner.name}</h4>
-          <p className="text-yellow-600 font-bold text-xl mt-2">
+          <p className="text-2xl font-bold text-yellow-900">{winner.name}</p>
+          <p className="text-lg text-yellow-700">
             {winner.votes} votes (
             {totalVotes > 0
               ? ((winner.votes / totalVotes) * 100).toFixed(1)
@@ -99,61 +158,58 @@ export function Results() {
         </div>
       )}
 
-      <div className="space-y-4">
-        {results.map((party, index) => (
-          <div
-            key={index}
-            className="bg-white border-2 border-gray-100 p-6 rounded-[2rem] hover:border-emerald-300 transition-all"
-          >
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className="bg-gray-100 w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl text-gray-400">
-                  #{index + 1}
-                </div>
-                <div>
-                  <h4 className="text-2xl font-black text-gray-900">
-                    {party.name}
-                  </h4>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    {party.symbol}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-4xl font-black text-emerald-600">
-                  {party.votes}
-                </p>
-                <p className="text-xs text-gray-400 font-bold">
-                  {totalVotes > 0
-                    ? ((party.votes / totalVotes) * 100).toFixed(1)
-                    : 0}
-                  % of votes
-                </p>
-              </div>
-            </div>
-            {/* Vote bar */}
-            <div className="mt-4 bg-gray-100 h-3 rounded-full overflow-hidden">
-              <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${
-                    totalVotes > 0 ? (party.votes / totalVotes) * 100 : 0
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-        ))}
+      {/* Results Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-blue-600 text-white">
+            <tr>
+              <th className="px-4 py-3 text-left">Rank</th>
+              <th className="px-4 py-3 text-left">Party Name</th>
+              <th className="px-4 py-3 text-right">Votes</th>
+              <th className="px-4 py-3 text-right">Percentage</th>
+              <th className="px-4 py-3">Vote Distribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((party, index) => {
+              const percentage =
+                totalVotes > 0 ? (party.votes / totalVotes) * 100 : 0;
+              return (
+                <tr
+                  key={party.address}
+                  className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                >
+                  <td className="px-4 py-3 font-bold">{index + 1}</td>
+                  <td className="px-4 py-3">{party.name}</td>
+                  <td className="px-4 py-3 text-right font-semibold">
+                    {party.votes}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {percentage.toFixed(1)}%
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="w-full bg-gray-200 rounded-full h-6">
+                      <div
+                        className="bg-blue-600 h-6 rounded-full flex items-center justify-center text-white text-sm font-medium"
+                        style={{ width: `${percentage}%` }}
+                      >
+                        {percentage > 10 && `${percentage.toFixed(0)}%`}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
-      {results.length === 0 && (
-        <div className="text-center p-16 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200">
-          <Flag size={64} className="mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-400 font-bold text-lg">
-            No parties registered yet
-          </p>
-        </div>
-      )}
+      {/* Total Votes */}
+      <div className="mt-6 text-center">
+        <p className="text-lg text-gray-700">
+          <span className="font-bold">Total Votes Cast:</span> {totalVotes}
+        </p>
+      </div>
     </div>
   );
 }

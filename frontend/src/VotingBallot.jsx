@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
-import { useWriteContract, useAccount } from "wagmi";
+import {
+  useWriteContract,
+  useAccount,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { BALLOT_ADDRESS } from "./constants";
 import BallotABI from "./abis/Ballot.json";
 import { CheckCircle2, Vote, Loader2 } from "lucide-react";
@@ -7,12 +11,9 @@ import { CheckCircle2, Vote, Loader2 } from "lucide-react";
 export function VotingBallot() {
   const { address } = useAccount();
   const [parties, setParties] = useState([]);
-  const {
-    writeContract,
-    isPending,
-    isSuccess,
-    data: hash,
-  } = useWriteContract();
+  const [votingFor, setVotingFor] = useState(null);
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   // Load approved parties from our local "database"
   useEffect(() => {
@@ -23,6 +24,10 @@ export function VotingBallot() {
   }, []);
 
   const handleVote = (partyAddress) => {
+    console.log("🗳️ Voting for party:", partyAddress);
+    console.log("👤 Voter address:", address);
+    console.log("📋 Ballot address:", BALLOT_ADDRESS);
+    setVotingFor(partyAddress);
     writeContract({
       address: BALLOT_ADDRESS,
       abi: BallotABI.abi,
@@ -31,7 +36,10 @@ export function VotingBallot() {
     });
   };
 
-  if (isSuccess) {
+  if (isConfirmed) {
+    // Dispatch event to notify Results component
+    window.dispatchEvent(new Event("vote_cast"));
+
     return (
       <div className="text-center p-12 bg-emerald-50 rounded-[3rem] border border-emerald-100 animate-in zoom-in-95">
         <CheckCircle2 size={80} className="mx-auto text-emerald-500 mb-6" />
@@ -74,7 +82,7 @@ export function VotingBallot() {
               </p>
             </div>
             <div className="bg-gray-50 p-4 rounded-2xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
-              {isPending ? (
+              {isPending && votingFor === party.userAddress ? (
                 <Loader2 className="animate-spin" />
               ) : (
                 <Vote size={28} />
