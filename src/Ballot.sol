@@ -9,7 +9,7 @@ contract Ballot {
     // 2. We use the actual Contract Names as types
     UserRegistry public userRegistry;
     PartyRegistry public partyRegistry;
-    
+
     mapping(address => bool) public hasVoted; // voter address => voted or not
     mapping(address => uint256) public voteCount; // party address => votes
 
