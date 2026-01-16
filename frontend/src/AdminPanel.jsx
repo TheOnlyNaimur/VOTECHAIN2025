@@ -19,10 +19,10 @@ import { PartyQueue } from "./PartyQueue";
 import { Results } from "./Results";
 
 export function AdminPanel() {
-  const [voterAddress, setVoterAddress] = useState("");
+  const [voterAddress, setVoterAddress] = useState(""); // Input state
   const [activeTab, setActiveTab] = useState("voters"); // State to switch views
 
-  const { data: hash, writeContract, isPending, error } = useWriteContract();
+  const { data: hash, writeContract, isPending, error } = useWriteContract(); // Blockchain write hook
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({ hash });

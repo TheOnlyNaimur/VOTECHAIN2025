@@ -14,8 +14,8 @@ contract UserRegistry {
       Status status; 
   }
 
-    address public admin;
-    mapping(address => User) public users;
+    address public admin; //sets the deployer as admin. it works only one time when the contract is deployed the msg.sender becomes admin
+    mapping(address => User) public users; // here address is the metsmasks address of the user
 
     event UserRegistrationRequested(address indexed userAddress, string name, string nid);
 

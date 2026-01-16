@@ -1,3 +1,4 @@
+//Here this file is to configure the connection to the local anvil blockchain for frontend (wagmi setup)
 import { http, createConfig } from 'wagmi'
 import { anvil } from 'wagmi/chains'
 

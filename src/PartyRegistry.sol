@@ -32,7 +32,7 @@ contract PartyRegistry {
         
         parties[_partyAddress] = Party(_partyName, _regNumber, Status.Approved); // Directly approved
         
-        emit PartyRegistrationRequested(_partyAddress, _partyName);
+        emit PartyRegistrationRequested(_partyAddress, _partyName); // Notify frontend
     }
 
     // Admin function to approve the party after verifying details

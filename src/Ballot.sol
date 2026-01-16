@@ -10,8 +10,8 @@ contract Ballot {
     UserRegistry public userRegistry;
     PartyRegistry public partyRegistry;
     
-    mapping(address => bool) public hasVoted;
-    mapping(address => uint256) public voteCount;
+    mapping(address => bool) public hasVoted; // voter address => voted or not
+    mapping(address => uint256) public voteCount; // party address => votes
 
     event VoteCast(address indexed voter, address indexed party);
 
