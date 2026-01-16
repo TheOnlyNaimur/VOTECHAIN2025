@@ -2,13 +2,17 @@
 pragma solidity ^0.8.20;
 
 contract PartyRegistry {
+    enum Status {
+        None,
+        Pending,
+        Approved,
+        Rejected
+    }
 
-    enum Status { None, Pending, Approved, Rejected }
-    
-    struct Party { 
-        string partyName; 
+    struct Party {
+        string partyName;
         string regNumber; // Unique Registration ID for the Party
-        Status status; 
+        Status status;
     }
 
     address public admin;
@@ -17,21 +21,17 @@ contract PartyRegistry {
     // Event to notify the frontend when a new party applies
     event PartyRegistrationRequested(address indexed partyAddress, string name);
 
-    constructor() { 
-        admin = msg.sender; 
+    constructor() {
+        admin = msg.sender;
     }
 
     // Function for admin to register parties
-    function registerAsParty(
-        address _partyAddress,
-        string memory _partyName, 
-        string memory _regNumber      
-    ) public {
+    function registerAsParty(address _partyAddress, string memory _partyName, string memory _regNumber) public {
         require(msg.sender == admin, "Only Admin can register parties");
         require(parties[_partyAddress].status == Status.None, "Already registered");
-        
+
         parties[_partyAddress] = Party(_partyName, _regNumber, Status.Approved); // Directly approved
-        
+
         emit PartyRegistrationRequested(_partyAddress, _partyName); // Notify frontend
     }
 
@@ -39,7 +39,7 @@ contract PartyRegistry {
     function approveParty(address _party) public {
         require(msg.sender == admin, "Only Admin");
         require(parties[_party].status == Status.Pending, "No pending request");
-        
+
         parties[_party].status = Status.Approved;
     }
 
