@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { BALLOT_ADDRESS } from "./constants";
 import BallotABI from "./abis/Ballot.json";
 import { createPublicClient, http } from "viem";
+import { sepolia } from "viem/chains";
 
 export function Results() {
   const [results, setResults] = useState([]);
@@ -16,7 +17,10 @@ export function Results() {
         setLoading(true);
         console.log("📊 Results: Fetching results...");
         const client = createPublicClient({
-          transport: http("http://127.0.0.1:8545"),
+          chain: sepolia,
+          transport: http(
+            "https://sepolia.infura.io/v3/31a3c11aa7554ab592dfb8c62e4b11c5"
+          ),
         });
         const bytecode = await client.getBytecode({ address: BALLOT_ADDRESS });
         console.log("📊 Results: Ballot bytecode present?", Boolean(bytecode));
