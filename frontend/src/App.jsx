@@ -30,6 +30,7 @@ function App() {
 
   const [view, setView] = useState("portal");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showMetaMaskError, setShowMetaMaskError] = useState(false);
 
   // INSTANT CHECK: Compares connected wallet to the constant in constants.js
   const isAdmin =
@@ -80,8 +81,33 @@ function App() {
           Secure, transparent, and decentralized national election portal
           powered by Blockchain.
         </p>
+
+        {showMetaMaskError && (
+          <div className="bg-red-50 border-2 border-red-500 text-red-700 px-6 py-4 rounded-2xl mb-6 max-w-md shadow-lg">
+            <p className="font-bold mb-2">⚠️ MetaMask Not Found</p>
+            <p className="text-sm">
+              Please install MetaMask extension to connect.{" "}
+              <a
+                href="https://metamask.io/download/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-bold hover:text-red-900"
+              >
+                Download here
+              </a>
+            </p>
+          </div>
+        )}
+
         <button
-          onClick={() => connect({ connector: injected() })}
+          onClick={() => {
+            if (typeof window.ethereum === "undefined") {
+              setShowMetaMaskError(true);
+              setTimeout(() => setShowMetaMaskError(false), 5000);
+            } else {
+              connect({ connector: injected() });
+            }
+          }}
           className="bg-gray-900 text-white hover:bg-emerald-600 px-12 py-5 rounded-2xl font-bold transition-all flex items-center gap-4 shadow-2xl hover:scale-105 active:scale-95"
         >
           <Wallet size={24} /> Access Portal
